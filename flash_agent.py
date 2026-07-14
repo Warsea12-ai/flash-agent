@@ -349,12 +349,14 @@ def _create_openai_client(cfg: AgentConfig) -> OpenAI:
             api_key=cfg.openai_api_key,
             azure_endpoint=cfg.openai_base_url,
             api_version=cfg.azure_api_version,
-            timeout=120.0,
+            timeout=cfg.llm_request_timeout,
+            max_retries=cfg.llm_max_retries,
         )
     return OpenAI(
         api_key=cfg.openai_api_key or "not-needed",
         base_url=cfg.openai_base_url,
-        timeout=120.0,
+        timeout=cfg.llm_request_timeout,
+        max_retries=cfg.llm_max_retries,
     )
 
 

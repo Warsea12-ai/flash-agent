@@ -35,6 +35,8 @@ class AgentConfig:
     openai_api_key: str
     model_alias: str
     azure_api_version: str
+    llm_request_timeout: float
+    llm_max_retries: int
 
     # MCP Servers (comma-separated URLs)
     mcp_urls: list[str]
@@ -62,6 +64,16 @@ class AgentConfig:
             openai_api_key=os.getenv("OPENAI_API_KEY", ""),
             model_alias=os.getenv("MODEL_ALIAS", ""),
             azure_api_version=os.getenv("AZURE_API_VERSION", "2025-04-01-preview"),
+            # Hosted APIs (Azure/OpenAI) rarely take more than a few seconds per call, so
+            # 120s + the SDK's own 2 retries is plenty of margin. A local CPU-served
+            # open-weight model is a different regime entirely: benchmarked directly
+            # against this host's Ollama at num_ctx=16384, a single ~3.5K-input-token /
+            # ~1.1K-output-token completion took ~4.5 minutes end-to-end (prompt eval
+            # ~70 tok/s, generation ~5 tok/s) -- comfortably past the old hardcoded 120s,
+            # which is exactly what was crashing later ReAct iterations with "Request
+            # timed out." Both knobs are overridable per-backend via env vars.
+            llm_request_timeout=float(os.getenv("LLM_REQUEST_TIMEOUT", "120.0")),
+            llm_max_retries=int(os.getenv("LLM_MAX_RETRIES", "2")),
             mcp_urls=mcp_urls,
             mcp_timeout=int(os.getenv("MCP_TIMEOUT", "30")),
             scan_query=os.getenv(
