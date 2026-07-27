@@ -8,7 +8,6 @@ Centralised configuration loaded from environment variables.
 from __future__ import annotations
 
 import os
-import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -30,14 +29,6 @@ class AgentConfig:
 
     # Agent identity
     agent_name: str
-
-    # ACE certifier trace metadata — attached to every LLM call so the resulting
-    # Langfuse trace carries the {agent_id, experiment_id, run_id} the certifier's
-    # own pipeline (scripts/run_certification.py, cert_task_runner) needs to look up
-    # a trace by ID and resolve which agent/experiment/run it belongs to.
-    agent_id: str
-    experiment_id: str
-    run_id: str
 
     # LLM
     openai_base_url: str
@@ -69,15 +60,6 @@ class AgentConfig:
 
         return cls(
             agent_name=os.getenv("AGENT_NAME", "flash-agent"),
-            agent_id=os.getenv("AGENT_ID", "flash-agent"),
-            # Empty by default so ad-hoc/dev runs attach no certifier metadata at all
-            # (unchanged behavior) -- a real certification run sets EXPERIMENT_ID
-            # explicitly per fault bundle under test.
-            experiment_id=os.getenv("EXPERIMENT_ID", ""),
-            # One RUN_ID per process invocation (a single flash-agent run may loop
-            # through several hindsight scans, but they all belong to the same
-            # certification run). Auto-generated if not explicitly pinned.
-            run_id=os.getenv("RUN_ID") or str(uuid.uuid4()),
             openai_base_url=os.getenv("OPENAI_BASE_URL", ""),
             openai_api_key=os.getenv("OPENAI_API_KEY", ""),
             model_alias=os.getenv("MODEL_ALIAS", ""),

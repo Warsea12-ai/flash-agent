@@ -342,43 +342,6 @@ class WatchBaseline:
     established_at: str = ""
 
 
-def _trace_metadata_extra_body(cfg: AgentConfig) -> Dict[str, Any]:
-    """
-    ``extra_body`` for LLM calls carrying {agent_id, experiment_id, experiment_run_id}
-    so the ACE certifier (scripts/run_certification.py, cert_task_runner) can resolve
-    a Langfuse trace back to the agent/experiment/run it belongs to.
-
-    LiteLLM's Langfuse integration only promotes metadata keys prefixed `trace_`
-    onto the trace's own top-level attributes -- a bare `metadata={...}` field
-    lands on the per-call GENERATION observation instead (nested under
-    `requester_metadata`), which the certifier's trace-metadata lookup doesn't
-    read. Confirmed empirically: `metadata.trace_metadata` is what ends up as the
-    trace's own `metadata` object.
-
-    Key name is `experiment_run_id`, not `run_id` -- certifier/main/services/
-    trace_service.py's `_list_traces` searches Langfuse by exactly
-    `metadata.experiment_id` + `metadata.experiment_run_id` for LiteLLM/Agent
-    traces (a separate `experiment.id`/`experiment.run_id` dotted form exists for
-    chaos/OTel spans, not applicable here). Confirmed by reading that file after
-    a real run with `run_id` produced "TRACE_NOT_FOUND" despite the single-trace
-    lookup by --trace-id resolving the same run's IDs correctly.
-
-    Returns {} (attach nothing) when EXPERIMENT_ID isn't set, so ad-hoc/dev runs
-    that never configured certifier metadata see no behavior change.
-    """
-    if not cfg.experiment_id:
-        return {}
-    return {
-        "metadata": {
-            "trace_metadata": {
-                "agent_id": cfg.agent_id,
-                "experiment_id": cfg.experiment_id,
-                "experiment_run_id": cfg.run_id,
-            }
-        }
-    }
-
-
 def _create_openai_client(cfg: AgentConfig) -> OpenAI:
     """Create an OpenAI-compatible client (supports Azure or standard endpoints)."""
     if cfg.openai_base_url and ".openai.azure.com" in cfg.openai_base_url:
@@ -586,7 +549,6 @@ class FlashAgent:
                     tools=openai_tools,
                     tool_choice="auto",
                     temperature=0.1,
-                    extra_body=_trace_metadata_extra_body(self.cfg),
                 )
             except Exception as exc:
                 logger.error("LLM call failed: %s", exc)
@@ -973,7 +935,6 @@ class FlashAgent:
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0.1,
-                extra_body=_trace_metadata_extra_body(self.cfg),
             )
             content = response.choices[0].message.content or ""
             baseline_config = self._parse_analysis_response(content)
